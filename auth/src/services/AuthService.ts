@@ -7,7 +7,7 @@ export default class AuthService {
     async signup(req: Request, email: string, password: string): Promise<User> {
         // Check if user already exists
         const userExist = await User.findOne({ email });
-console.log("process.env.JWT_KEY",process.env.JWT_KEY)
+
         if (userExist) {
             throw new BaseException(
                 "User already exists with this email",  // Mensaje más apropiado
