@@ -1,114 +1,102 @@
-import amqp, { ConsumeMessage } from "amqplib";
+import amqp, { ConsumeMessage } from 'amqplib';
 
-
-class Rabbitmq {
-  // Updated connection parameters for Kubernetes
+export class Rabbitmq {
   private connectionUri: string = 'amqp://guest:guest@rabbitmq-srv:5672';
-  private exchangeName: string = 'your-exchange-name';
-  private exchangeType: string = 'direct';
-  private routingKey: string = 'your-routing-key';
-  private queue: string = 'your-queue-name';
+  private exchangeName: string = 'your-fanout-exchange';
+  private exchangeType: string = 'fanout';
 
-  private connection!: amqp.Connection;
-  private channel!: amqp.Channel;
+  private connection: any = null;
+  private channel: any = null;
 
-  async init() {
+  constructor() {}
+
+  async init(): Promise<void> {
     try {
-      console.log('Attempting to connect to RabbitMQ with URI:', this.connectionUri);
-      
-      // Establish connection with more robust options
-      this.connection = await amqp.connect(this.connectionUri, {
-        heartbeat: 60,
-        timeout: 5000
-      });
-
-      // Error handling
-      this.connection.on("error", (err: any) => {
-        console.error("RabbitMQ error: closing server", err);
-        process.exit(1);
-      });
-
-      this.connection.on("close", () => {
-        console.error("RabbitMQ disconnected: closing server");
-        process.exit(1);
-      });
-
-      // Create channel
-      this.channel = await this.connection.createChannel();
-
-      // Assert queue
-      await this.channel.assertQueue(this.queue, {
-        durable: true,
-        autoDelete: false,
-        exclusive: false,
-      });
-
-      // Assert exchange
-      this.channel.assertExchange(this.exchangeName, this.exchangeType);
-
-      // Bind queue to exchange
-      await this.channel.bindQueue(this.queue, this.exchangeName, this.routingKey);
-
-      // Set prefetch
-      await this.channel.prefetch(1);
-
-      console.info("RabbitMQ connected... Ok!");
-
-      return this.connection;
-    } catch (error) {
-      console.error("Failed to initialize RabbitMQ connection", error);
-      throw error;
-    }
-  }
-  async publish(message: any) {
-    try {
-      // Convertir mensaje a Buffer
-      const content = Buffer.from(JSON.stringify(message));
-  
-      // Publicar mensaje usando los valores por defecto de la clase
-      const result = this.channel.publish(
-        this.exchangeName, 
-        this.routingKey, 
-        content, 
-        { 
-          persistent: true, 
-          timestamp: Date.now(), 
-          contentType: 'application/json' 
+      console.log('Connecting to RabbitMQ...');
+      const retries = 5;
+      for (let i = 0; i < retries; i++) {
+        try {
+          this.connection = await amqp.connect(this.connectionUri);
+          break;
+        } catch (err) {
+          console.warn(`Retrying RabbitMQ (${retries - i - 1} tries left)`);
+          await new Promise((r) => setTimeout(r, 5000));
         }
-      );
-  
-      console.log(`Message published to exchange ${this.exchangeName} with routing key ${this.routingKey}`);
-      console.log("result",message)
-      return result;
+      }
+
+      if (!this.connection) throw new Error('Could not establish connection');
+
+      this.connection.on('error', (err: Error) => {
+        console.error('RabbitMQ connection error:', err);
+        process.exit(1);
+      });
+
+      this.connection.on('close', () => {
+        console.error('RabbitMQ connection closed');
+        process.exit(1);
+      });
+
+      this.channel = await this.connection.createChannel();
+      await this.channel.assertExchange(this.exchangeName, this.exchangeType, {
+        durable: false,
+      });
+
+      console.log('RabbitMQ is ready!');
     } catch (error) {
-      console.error('Error publishing message:', error);
+      console.error('RabbitMQ init failed:', error);
       throw error;
     }
   }
 
-  async subscribe() {
-    this.channel.consume(this.queue, async (message: any) => {
-      await this.messageHandler(message);
+  async publish(message: any): Promise<boolean> {
+    if (!this.channel) throw new Error('Channel not ready');
+
+    const content = Buffer.from(JSON.stringify(message));
+
+    const sent = this.channel.publish(
+      this.exchangeName,
+      '', // fanout ignora routingKey
+      content,
+      {
+        persistent: true,
+        contentType: 'application/json',
+        timestamp: Date.now(),
+      }
+    );
+
+    console.log('Message published:', message);
+    return sent;
+  }
+
+  async subscribe(): Promise<void> {
+    if (!this.channel) throw new Error('Channel not ready');
+
+    const q = await this.channel.assertQueue('', { exclusive: true });
+
+    await this.channel.bindQueue(q.queue, this.exchangeName, '');
+
+    await this.channel.consume(q.queue, async (msg: ConsumeMessage | null) => {
+      await this.messageHandler(msg);
     });
 
-    console.info(`RabbitMQ consuming from: ${this.queue}`);
+    console.log(`Subscribed to fanout exchange: ${this.exchangeName}`);
   }
 
-  async messageHandler(message: ConsumeMessage | null) {
-    try {
-      if (message) {
-        console.log("Received message:", message);
-        this.channel.ack(message);
-      }
-    } catch (error) {
-      console.error(error);
-      this.channel.nack(message as ConsumeMessage, false, false);
+  private async messageHandler(message: ConsumeMessage | null): Promise<void> {
+    if (message && this.channel) {
+      const data = JSON.parse(message.content.toString());
+      console.log('Received message:', data);
+
+      // TODO: procesar mensaje
+
+      this.channel.ack(message);
     }
   }
 
-  async getRabbitMQData() {
-    const { product, version } = this.connection.connection.serverProperties;
-    return { product, version };
+  async close(): Promise<void> {
+    if (this.channel) await this.channel.close();
+    if (this.connection) await this.connection.close();
+    console.log('RabbitMQ connection closed gracefully.');
   }
 }
 

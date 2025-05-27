@@ -17,12 +17,13 @@
     "@types/node": "^22.10.1",
     "nodemon": "^3.1.7",
     "ts-node": "^10.9.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+        "amqplib": "^0.10.5"
+
   },
   "dependencies": {
     "@types/amqplib": "^0.10.6",
     "@types/mongoose": "^5.11.96",
-    "amqplib": "^0.10.5",
     "cookie-session": "^2.1.0",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",

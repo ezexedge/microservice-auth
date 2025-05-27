@@ -22,6 +22,14 @@ build:
         manual:
           - src: "dist/src/**/*.js"
             dest: .
+    - image: ezeedge/mailing2
+      context: mailing2
+      docker: 
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: "dist/src/**/*.js"
+            dest: .
 deploy:
   kubectl:
     manifests:
