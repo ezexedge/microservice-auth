@@ -41,6 +41,8 @@ export class Rabbitmq {
         durable: false,
       });
 
+      await this.subscribe();
+
       console.log('RabbitMQ is ready!');
     } catch (error) {
       console.error('RabbitMQ init failed:', error);
