@@ -66,6 +66,7 @@ export class Rabbitmq {
         if (msg) {
           try {
             await callback(msg);
+            
             this.channel.ack(msg);
           } catch (error) {
             console.error("Error in consume callback:", error);

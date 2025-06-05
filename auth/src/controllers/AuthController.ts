@@ -16,11 +16,12 @@ class AuthController{
 
         const { password, email } = req.body; 
 
+        console.log("ccccccc")
         console.log("req.body;",req.body)
 
         const user = await this.service.signup(req,email,password)
 
-        await rabbit.publish({message:"hoolaaaaaaaxxxxx"})
+        await rabbit.publish({message:"hola"})
 
         res.status(201).json({
             message: "Usuario registrado exitosamente",

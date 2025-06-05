@@ -29,14 +29,14 @@ export default class App{
 
         this.app.use(errorHandler);
       
-        await rabbit.init()
+                await rabbit.init()
 
         this.connection = await db.connectDb()
         
         await this.routes.main(this.app);
 
 this.app.listen(3000, '0.0.0.0', () => {
-  console.log('Listening on port 3000!!');
+  console.log('Listening on port 3000 xxx!!');
 });
     }
 }
