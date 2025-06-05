@@ -1,7 +1,36 @@
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mailing
+---
+# Secret JWT
+apiVersion: v1
+kind: Secret
+metadata:
+  name: jwt-secret
+  namespace: mailing
+type: Opaque
+stringData:
+  JWT_KEY: tu_clave_secreta
+---
+# Secret RabbitMQ
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rabbitmq-secret
+  namespace: mailing
+type: Opaque
+stringData:
+  RABBITMQ_USER: user
+  RABBITMQ_PASS: pass
+---
+# Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mailing-depl
+  namespace: mailing
 spec:
   replicas: 1
   selector:
@@ -37,12 +66,13 @@ spec:
                   key: RABBITMQ_PASS
           ports:
             - containerPort: 3000
-
 ---
+# Service
 apiVersion: v1
 kind: Service
 metadata: 
   name: mailing-srv
+  namespace: mailing
 spec:
   selector:
     app: mailing
