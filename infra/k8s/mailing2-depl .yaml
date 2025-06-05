@@ -22,10 +22,64 @@ metadata:
   namespace: mailing2
 type: Opaque
 stringData:
-  RABBITMQ_USER: user
-  RABBITMQ_PASS: pass
+  RABBITMQ_USER: guest
+  RABBITMQ_PASS: guest
 ---
-# Deployment
+# RabbitMQ Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq-depl
+  namespace: mailing2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:3-management
+          ports:
+            - containerPort: 5672  # AMQP
+              name: amqp
+            - containerPort: 15672 # UI
+              name: http
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq-secret
+                  key: RABBITMQ_USER
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq-secret
+                  key: RABBITMQ_PASS
+---
+# RabbitMQ Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq-srv
+  namespace: mailing2
+spec:
+  selector:
+    app: rabbitmq
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: 5672
+    - name: http
+      port: 15672
+      targetPort: 15672
+  type: ClusterIP
+---
+# Mailing2 Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -67,7 +121,7 @@ spec:
           ports:
             - containerPort: 3000
 ---
-# Service
+# Mailing2 Service
 apiVersion: v1
 kind: Service
 metadata: 
