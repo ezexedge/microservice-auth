@@ -1,7 +1,32 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: auth
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: jwt-secret
+  namespace: auth
+type: Opaque
+stringData:
+  JWT_KEY: tu_clave_secreta
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rabbitmq-secret
+  namespace: auth
+type: Opaque
+stringData:
+  RABBITMQ_USER: user
+  RABBITMQ_PASS: pass
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: auth-depl
+  namespace: auth
 spec:
   replicas: 1
   selector:
@@ -37,17 +62,18 @@ spec:
                   key: RABBITMQ_PASS
           ports:
             - containerPort: 3000
-
 ---
+# Service
 apiVersion: v1
 kind: Service
-metadata: 
+metadata:
   name: auth-srv
+  namespace: auth
 spec:
   selector:
     app: auth
   ports:
-    - name: auth
+    - name: http
       protocol: TCP
       port: 3000
       targetPort: 3000
