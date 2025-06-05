@@ -1,8 +1,21 @@
+# Namespace
 apiVersion: v1
 kind: Namespace
 metadata:
   name: auth
 ---
+# RabbitMQ Secret (con guest/guest)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rabbitmq-secret
+  namespace: auth
+type: Opaque
+stringData:
+  RABBITMQ_USER: guest
+  RABBITMQ_PASS: guest
+---
+# JWT Secret
 apiVersion: v1
 kind: Secret
 metadata:
@@ -12,16 +25,63 @@ type: Opaque
 stringData:
   JWT_KEY: tu_clave_secreta
 ---
-apiVersion: v1
-kind: Secret
+# RabbitMQ Deployment
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: rabbitmq-secret
+  name: rabbitmq-depl
   namespace: auth
-type: Opaque
-stringData:
-  RABBITMQ_USER: user
-  RABBITMQ_PASS: pass
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:3-management
+          ports:
+            - containerPort: 5672
+              name: amqp
+            - containerPort: 15672
+              name: http
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq-secret
+                  key: RABBITMQ_USER
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq-secret
+                  key: RABBITMQ_PASS
+            - name: RABBITMQ_LOOPBACK_USERS  # ⚠️ Necesario para habilitar guest desde fuera de localhost
+              value: ""
 ---
+# RabbitMQ Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq-srv
+  namespace: auth
+spec:
+  selector:
+    app: rabbitmq
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: 5672
+    - name: http
+      port: 15672
+      targetPort: 15672
+  type: ClusterIP
+---
+# Auth Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -63,7 +123,7 @@ spec:
           ports:
             - containerPort: 3000
 ---
-# Service
+# Auth Service
 apiVersion: v1
 kind: Service
 metadata:
